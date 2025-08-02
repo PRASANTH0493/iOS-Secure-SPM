@@ -6,7 +6,7 @@
 //
 
 import UIKit
-
+import iOS_Secure_SPM
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?
@@ -17,6 +17,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // If using a storyboard, the `window` property will automatically be initialized and attached to the scene.
         // This delegate does not imply the connecting scene or session are new (see `application:configurationForConnectingSceneSession` instead).
         guard let _ = (scene as? UIWindowScene) else { return }
+    
+        configureSecureManager()
     }
 
     func sceneDidDisconnect(_ scene: UIScene) {
@@ -50,3 +52,66 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
 }
 
+extension SceneDelegate {
+    func configureSecureManager() {
+        SecureManager.shared.configure(secureManagerDelegates: SecureManagerDelegatesMock(), antiFraudManager: AntiFraudManagerProtocolMock())
+        SecureManager.shared.addScreenshotPreventNotification()
+    }
+}
+
+class SecureManagerDelegatesMock: SecureManagerprotocol {
+    var secureFeatureToggles: SecureFeatureProtocol {
+        SecureFeatureProtocolMock()
+    }
+}
+class SecureFeatureProtocolMock: SecureFeatureProtocol {
+    var isScreenshotDetectionEnabled: Bool { true }
+    var isScreenRecordingDetectionEnabled: Bool { true }
+    var isScreenshotMaskingEnabled: Bool { true }
+    var isVPNDetectionEnabled: Bool { true }
+}
+class AntiFraudManagerProtocolMock: AntiFraudManagerProtocol {
+    func getApplicationWindow() -> UIWindow? {
+        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let delegate = scene.delegate as? SceneDelegate,
+           let window = delegate.window {
+            return window
+        }
+        return nil
+    }
+    
+    func getMakingView() -> UIView? {
+        return UIStoryboard(name: "SecureLayer", bundle: nil).instantiateInitialViewController()?.view
+    }
+    
+    func showAlert(title: String, message: String) {
+        guard let topVC = getTopViewController() else {
+            print("Failed to find top view controller")
+            return
+        }
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        topVC.present(alert, animated: true)
+    }
+    func getTopViewController(base: UIViewController? = UIApplication.shared.connectedScenes
+        .compactMap { ($0 as? UIWindowScene)?.keyWindow }
+        .first?.rootViewController) -> UIViewController? {
+            
+            if let nav = base as? UINavigationController {
+                return getTopViewController(base: nav.visibleViewController)
+            }
+            
+            if let tab = base as? UITabBarController {
+                if let selected = tab.selectedViewController {
+                    return getTopViewController(base: selected)
+                }
+            }
+            
+            if let presented = base?.presentedViewController {
+                return getTopViewController(base: presented)
+            }
+            
+            return base
+        }
+    
+}
