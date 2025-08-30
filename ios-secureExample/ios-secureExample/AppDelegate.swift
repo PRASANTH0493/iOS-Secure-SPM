@@ -6,7 +6,7 @@
 //
 
 import UIKit
-
+import iOS_Secure_SPM
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
@@ -14,6 +14,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        
+        // Initialize VPNNotifier singleton to start observing VPN status changes
+        _ = VPNNotifier.shared
+
+        // Start async check of VPN status
+        Task {
+            await VPNDetector.shared.checkVPNStatus()
+        }
         return true
     }
 
